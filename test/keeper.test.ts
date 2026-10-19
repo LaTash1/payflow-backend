@@ -44,10 +44,11 @@ function fakeRpc(funded: Set<string>, submitted: string[] = []): KeeperRpc {
     },
     prepareTransaction: async (tx) => tx,
     sendTransaction: async (tx) => {
-      submitted.push((tx as Transaction).hash().toString("hex"));
+      const hash = Buffer.from((tx as Transaction).hash()).toString("hex");
+      submitted.push(hash);
       return {
         status: "PENDING",
-        hash: (tx as Transaction).hash().toString("hex"),
+        hash,
       } as never;
     },
     getTransaction: async () =>
@@ -414,7 +415,10 @@ describe("keeper settle transaction paths", () => {
       },
     } as unknown as KeeperRpc;
     const result = await settleKeeper(server).settle(8);
-    assert.deepEqual(result, { mandateId: 8, status: "failed", error: "NOT_FOUND" });
+    assert.equal(result.mandateId, 8);
+    assert.equal(result.status, "failed");
+    assert.equal(result.error, "NOT_FOUND");
+    assert.ok(result.txHash);
     assert.equal(polls, 11);
   });
 
@@ -449,7 +453,7 @@ describe("keeper settle transaction paths", () => {
     const result = await settleKeeper(server).settle(11);
     assert.equal(result.mandateId, 11);
     assert.equal(result.status, "settled");
-    assert.match(result.txHash ?? "", /^[0-9a-f]+$/);
+    assert.match(result.txHash ?? "", /^[0-9a-f]{64}$/);
   });
 });
 

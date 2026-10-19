@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { DatabaseSync } from "node:sqlite";
+import { getVaultBalances, listVaultEvents } from "../lib/queries.ts";
 import { limitOf } from "./helpers.ts";
 import type { VaultBalancePage, VaultEventPage } from "./types.ts";
 
@@ -9,35 +10,13 @@ export function vaultRouter(db: DatabaseSync): Router {
 
   r.get("/vault/:address", (req, res) => {
     const address = String(req.params.address);
-    const balances = db
-      .prepare(
-        `SELECT e.token, e.balance, e.ledger
-           FROM vault_events e
-          WHERE e.user = ?
-            AND NOT EXISTS (
-              SELECT 1 FROM vault_events newer
-               WHERE newer.user = e.user
-                 AND newer.token = e.token
-                 AND (newer.ledger > e.ledger OR
-                      (newer.ledger = e.ledger AND newer.rowid > e.rowid))
-            )
-          ORDER BY e.token`,
-      )
-      .all(address) as VaultBalancePage["balances"];
+    const balances = getVaultBalances(db, address);
     res.json({ address, balances } satisfies VaultBalancePage);
   });
 
   r.get("/vault/:address/events", (req, res) => {
     const address = String(req.params.address);
-    const events = db
-      .prepare(
-        `SELECT tx_hash, kind, user, token, counterparty, amount, balance, ledger
-           FROM vault_events
-          WHERE user = ?
-          ORDER BY ledger DESC, rowid DESC
-          LIMIT ?`,
-      )
-      .all(address, limitOf(req.query.limit)) as VaultEventPage["events"];
+    const events = listVaultEvents(db, address, limitOf(req.query.limit));
     res.json({ address, events } satisfies VaultEventPage);
   });
 
