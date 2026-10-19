@@ -250,7 +250,7 @@ export class Keeper {
       this.config.KEEPER_SECRET_NEXT,
       ...this.keys.map((key) => key.publicKey()),
     ];
-    return sensitive.reduce(
+    return sensitive.reduce<string>(
       (safe, value) => (value ? safe.replaceAll(value, "[redacted]") : safe),
       message,
     );
